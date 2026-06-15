@@ -169,8 +169,8 @@ resource "azapi_resource" "mcp_api" {
         summary               = each.value.summary
         description           = each.value.description
         kind                  = each.value.kind
-        externalDocumentation = [each.value.externalDocumentation]
-        customProperties      = try(each.value.customProperties, {})
+        externalDocumentation = [each.value.externalDocumentation] # JSON file uses a single object; payload wraps it in an array
+        customProperties      = each.value.customProperties
       },
       can(each.value.packages) ? { packages = each.value.packages } : {},
       can(each.value.vendor) ? { vendor = each.value.vendor } : {},
@@ -185,6 +185,41 @@ resource "azapi_resource" "mcp_api" {
       can(each.value.authSchemas) ? { authSchemas = each.value.authSchemas } : {},
       can(each.value.audience) ? { audience = each.value.audience } : {}
     )
+  }
+
+  lifecycle {
+    precondition {
+      condition     = trimspace(each.value.description) != ""
+      error_message = "MCP server '${each.value.name}' must have a non-empty description."
+    }
+    precondition {
+      condition     = trimspace(each.value.name) != ""
+      error_message = "MCP server entry must have a non-empty name."
+    }
+    precondition {
+      condition     = trimspace(each.value.title) != ""
+      error_message = "MCP server '${each.value.name}' must have a non-empty title."
+    }
+    precondition {
+      condition     = trimspace(each.value.summary) != ""
+      error_message = "MCP server '${each.value.name}' must have a non-empty summary."
+    }
+    precondition {
+      condition     = each.value.kind == "mcp"
+      error_message = "MCP server '${each.value.name}' must set kind to 'mcp'."
+    }
+    precondition {
+      condition     = can(each.value.externalDocumentation.title) && trimspace(each.value.externalDocumentation.title) != "" && can(each.value.externalDocumentation.url) && trimspace(each.value.externalDocumentation.url) != ""
+      error_message = "MCP server '${each.value.name}' must include externalDocumentation.title and externalDocumentation.url."
+    }
+    precondition {
+      condition     = trimspace(each.value.versionName) != ""
+      error_message = "MCP server '${each.value.name}' must have a non-empty versionName."
+    }
+    precondition {
+      condition     = can(each.value.customProperties)
+      error_message = "MCP server '${each.value.name}' must include customProperties (can be {})."
+    }
   }
 }
 
@@ -229,12 +264,12 @@ resource "azapi_resource" "mcp_api_deployment" {
   body = {
     properties = {
       title         = "Deployment to ${var.environment_name}"
-      environmentId = "/workspaces/${var.workspace_name}/environments/${var.environment_name}"
-      definitionId  = "/workspaces/${var.workspace_name}/apis/${each.value.name}/versions/${each.value.versionName}/definitions/default-definition"
+      environmentId = "${local.api_center_id}/workspaces/${var.workspace_name}/environments/${var.environment_name}"
+      definitionId  = "${local.api_center_id}/workspaces/${var.workspace_name}/apis/${each.value.name}/versions/${each.value.versionName}/definitions/default-definition"
       server = {
         runtimeUri = [each.value.remote]
       }
-      customProperties = try(each.value.customProperties, {})
+      customProperties = each.value.customProperties
     }
   }
 
@@ -251,7 +286,11 @@ API Center MCP properties such as `remote`, `remoteType`, `securitySchemes`, and
 
 ## JSON server examples
 
+In server JSON files, set `externalDocumentation` as a **single object**. The Terraform resource shown above automatically wraps that object into an array for the ARM payload.
+
 ### Remote MCP server (`infra/mcp-servers/figma-mcp-remote.json`)
+
+`externalDocumentation` remains an object in this JSON file; Terraform converts it to an array in the ARM payload.
 
 ```json
 {
@@ -309,11 +348,13 @@ API Center MCP properties such as `remote`, `remoteType`, `securitySchemes`, and
 - `name`
 - `title`
 - `summary`
-- `description` (**must not be empty**; empty descriptions can make servers invisible in VS Code)
+- `description` (**must not be empty**; empty descriptions can make servers invisible in VS Code, enforced by the `lifecycle.precondition` block above)
 - `kind` (`mcp`)
 - `externalDocumentation`
 - `versionName`
 - `customProperties` (object, can be `{}`)
+
+This example enforces non-empty descriptions via `lifecycle.precondition` in `azapi_resource.mcp_api`.
 
 ## Apply and deploy
 
