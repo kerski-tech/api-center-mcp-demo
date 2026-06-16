@@ -1,0 +1,17 @@
+{
+  "name": "figma-mcp",
+  "title": "Figma MCP Server",
+  "summary": "Brings Figma design context directly into your AI workflow.",
+  "description": "The Figma MCP server brings Figma directly into your workflow by providing design information and context to AI agents generating code from Figma design files.",
+  "kind": "mcp",
+  "remote": "https://mcp.figma.com/mcp",
+  "remoteType": "streamable-http",
+  "externalDocumentation": {
+    "title": "Figma MCP Server Guide",
+    "url": "https://developers.figma.com/docs/figma-mcp-server/"
+  },
+  "versionName": "1-0-3",
+  "customProperties": {
+    "x-ms-preview": true
+  }
+}
